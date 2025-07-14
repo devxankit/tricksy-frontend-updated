@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:4002/api',
+  baseURL: 'https://app-backend-phi.vercel.app/api',
   headers: {
     'Content-Type': 'application/json',
   },
