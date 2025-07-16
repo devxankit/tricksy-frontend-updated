@@ -70,6 +70,8 @@ export default function AccommodationList({ accommodations = [], isAdmin = false
     );
   }
 
+  const API_URL = api.defaults.baseURL.replace(/\/api$/, '') || '';
+
   return (
     <div className="space-y-6">
       <Card>
@@ -145,10 +147,10 @@ export default function AccommodationList({ accommodations = [], isAdmin = false
                       {accommodation.images.map((image, idx) => (
                         <img
                           key={idx}
-                          src={image.startsWith('http') ? image : `http://localhost:4002${image}`}
+                          src={image.startsWith('http') ? image : `${API_URL}${image}`}
                           alt={`Accommodation ${idx + 1}`}
                           className="w-full h-24 object-cover rounded-md cursor-pointer hover:opacity-80 transition"
-                          onClick={() => window.open(image.startsWith('http') ? image : `http://localhost:4002${image}`, '_blank')}
+                          onClick={() => window.open(image.startsWith('http') ? image : `${API_URL}${image}`, '_blank')}
                           onError={e => e.target.src = 'https://via.placeholder.com/150x100?text=Image+Not+Found'}
                         />
                       ))}
@@ -171,7 +173,7 @@ export default function AccommodationList({ accommodations = [], isAdmin = false
                           className="w-full rounded-md"
                           onError={e => { e.target.style.display = 'none'; }}
                         >
-                          <source src={video.startsWith('http') ? video : `http://localhost:4002${video}`} type="video/mp4" />
+                          <source src={video.startsWith('http') ? video : `${API_URL}${video}`} type="video/mp4" />
                           Your browser does not support the video tag.
                         </video>
                       ))}

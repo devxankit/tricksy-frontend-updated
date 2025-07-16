@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import TricksyLogo from './assets/TricksyLogo.png';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <img src={TricksyLogo} alt="Tricksy Logo" className="mx-auto mb-4 w-24 h-24 object-contain" />
         <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input

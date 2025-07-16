@@ -16,7 +16,7 @@ export default function UserList({ users, onDeleteUser }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-8 pb-8">
       {/* Mobile View - Cards */}
       <div className="lg:hidden space-y-4">
         {users.map((user, i) => (

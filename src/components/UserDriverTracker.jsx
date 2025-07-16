@@ -38,7 +38,18 @@ export default function UserDriverTracker() {
       const response = await api.get('/driver-assignment/user/driver-location');
       setDriverLocation(response.data.driverLocation);
     } catch (error) {
-      console.error('Error fetching driver location:', error);
+      if (error.response) {
+        if (error.response.status === 404) {
+          setDriverLocation(null);
+          setError('Your assigned driver is currently offline or has not updated their location yet. Please wait or contact support.');
+          // Silenced 404 error in console
+          // console.error('Backend error response:', error.response);
+        } else {
+          // Only log non-404 errors
+          console.error('Error fetching driver location:', error);
+          console.error('Backend error response:', error.response);
+        }
+      }
     }
   };
 
@@ -196,6 +207,16 @@ export default function UserDriverTracker() {
                 <p className="text-gray-700">{driverLocation.speed.toFixed(1)} km/h</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {assignment && !driverLocation && error && (
+        <div className="text-center py-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+            <p className="text-yellow-800">{error}</p>
+            <p className="text-sm text-yellow-600 mt-1">
+              Your driver may be offline or not sharing their location yet.
+            </p>
           </div>
         </div>
       )}

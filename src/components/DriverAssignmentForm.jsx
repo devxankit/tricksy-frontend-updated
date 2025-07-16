@@ -1,5 +1,89 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { useRef } from 'react';
+
+// Utility to load Google Maps script only once
+const loadGoogleMapsScript = (() => {
+  let scriptLoadingPromise;
+  return () => {
+    if (window.google && window.google.maps) return Promise.resolve();
+    if (scriptLoadingPromise) return scriptLoadingPromise;
+    scriptLoadingPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', resolve);
+        existingScript.addEventListener('error', reject);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=marker`;
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+    return scriptLoadingPromise;
+  };
+})();
+
+function GoogleMapPicker({ label, lat, lng, onPick, locationName }) {
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const mapContainerRef = useRef(null);
+
+  // Geocode location name when it changes
+  useEffect(() => {
+    if (locationName && window.google) {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address: locationName }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          const loc = results[0].geometry.location;
+          onPick({ lat: loc.lat(), lng: loc.lng() });
+        }
+      });
+    }
+    // eslint-disable-next-line
+  }, [locationName]);
+
+  useEffect(() => {
+    let mapInstance;
+    loadGoogleMapsScript().then(() => {
+      if (!mapContainerRef.current) return;
+      const center = { lat: lat || 20.5937, lng: lng || 78.9629 };
+      mapInstance = new window.google.maps.Map(mapContainerRef.current, {
+        center,
+        zoom: 5,
+      });
+      mapRef.current = mapInstance;
+      markerRef.current = new window.google.maps.Marker({
+        map: mapInstance,
+        position: center,
+        draggable: true,
+      });
+      mapInstance.addListener('click', (e) => {
+        markerRef.current.setPosition(e.latLng);
+        onPick({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      });
+      markerRef.current.addListener('dragend', (e) => {
+        onPick({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      });
+    });
+    // eslint-disable-next-line
+  }, []);
+  useEffect(() => {
+    if (markerRef.current && lat && lng) {
+      markerRef.current.setPosition({ lat, lng });
+      mapRef.current.setCenter({ lat, lng });
+    }
+  }, [lat, lng]);
+  return (
+    <div className="mb-2">
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div ref={mapContainerRef} style={{ width: '100%', height: '200px', borderRadius: '8px', border: '1px solid #ccc' }} />
+    </div>
+  );
+}
 
 export default function DriverAssignmentForm({ onAssignmentCreated, loading = false }) {
   const [formData, setFormData] = useState({
@@ -185,7 +269,7 @@ export default function DriverAssignmentForm({ onAssignmentCreated, loading = fa
         </div>
 
         {/* Pickup Location */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Pickup Location *
@@ -199,41 +283,14 @@ export default function DriverAssignmentForm({ onAssignmentCreated, loading = fa
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Pickup Latitude *
-            </label>
-            <input
-              type="number"
-              step="any"
-              name="pickupLatitude"
-              value={formData.pickupLatitude}
-              onChange={handleChange}
-              placeholder="e.g., 40.7128"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
+            <GoogleMapPicker
+              label="Pick Pickup Location on Map"
+              lat={formData.pickupLatitude ? parseFloat(formData.pickupLatitude) : undefined}
+              lng={formData.pickupLongitude ? parseFloat(formData.pickupLongitude) : undefined}
+              onPick={({ lat, lng }) => setFormData(prev => ({ ...prev, pickupLatitude: lat, pickupLongitude: lng }))}
+              locationName={formData.pickupLocation}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Pickup Longitude *
-            </label>
-            <input
-              type="number"
-              step="any"
-              name="pickupLongitude"
-              value={formData.pickupLongitude}
-              onChange={handleChange}
-              placeholder="e.g., -74.0060"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Drop Location */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Drop Location *
@@ -247,35 +304,12 @@ export default function DriverAssignmentForm({ onAssignmentCreated, loading = fa
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Drop Latitude *
-            </label>
-            <input
-              type="number"
-              step="any"
-              name="dropLatitude"
-              value={formData.dropLatitude}
-              onChange={handleChange}
-              placeholder="e.g., 40.7589"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Drop Longitude *
-            </label>
-            <input
-              type="number"
-              step="any"
-              name="dropLongitude"
-              value={formData.dropLongitude}
-              onChange={handleChange}
-              placeholder="e.g., -73.9851"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
+            <GoogleMapPicker
+              label="Pick Drop Location on Map"
+              lat={formData.dropLatitude ? parseFloat(formData.dropLatitude) : undefined}
+              lng={formData.dropLongitude ? parseFloat(formData.dropLongitude) : undefined}
+              onPick={({ lat, lng }) => setFormData(prev => ({ ...prev, dropLatitude: lat, dropLongitude: lng }))}
+              locationName={formData.dropLocation}
             />
           </div>
         </div>

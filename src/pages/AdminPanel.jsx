@@ -45,6 +45,8 @@ export default function AdminPanel() {
     const userData = localStorage.getItem('user');
     return userData ? JSON.parse(userData) : null;
   });
+  const [attendanceStats, setAttendanceStats] = useState({ percentage: 0 });
+  const [realTimeStats, setRealTimeStats] = useState({ users: 0, drivers: 0, attendance: 0 });
 
   // Fetch users and drivers on component mount
   useEffect(() => {
@@ -53,6 +55,10 @@ export default function AdminPanel() {
     fetchAccommodations();
     fetchAttendance();
     fetchDriverAssignments();
+    fetchAttendanceStats();
+    fetchRealTimeStats();
+    const interval = setInterval(fetchRealTimeStats, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const fetchUsers = async () => {
@@ -97,6 +103,32 @@ export default function AdminPanel() {
       setDriverAssignments(response.data.assignments);
     } catch (error) {
       console.error('Error fetching driver assignments:', error);
+    }
+  };
+
+  const fetchAttendanceStats = async () => {
+    try {
+      const response = await api.get('/attendance/admin/stats');
+      setAttendanceStats(response.data.stats || { percentage: 0 });
+    } catch (error) {
+      console.error('Error fetching attendance stats:', error);
+    }
+  };
+
+  const fetchRealTimeStats = async () => {
+    try {
+      const [usersRes, driversRes, attendanceRes] = await Promise.all([
+        api.get('/admin/total-users'),
+        api.get('/admin/total-drivers'),
+        api.get('/admin/todays-attendance'),
+      ]);
+      setRealTimeStats({
+        users: usersRes.data.count,
+        drivers: driversRes.data.count,
+        attendance: attendanceRes.data.count,
+      });
+    } catch (error) {
+      // Optionally handle error
     }
   };
 
@@ -186,31 +218,32 @@ export default function AdminPanel() {
     window.location.href = '/login';
   };
 
+  // Ensure all stats use realTimeStats and are updated via fetchRealTimeStats
   const stats = [
     {
       title: "Total Users",
-      value: users.length,
+      value: realTimeStats.users,
       icon: Users,
       color: "text-blue-600",
       bgColor: "bg-blue-50"
     },
     {
-      title: "Total Drivers",
-      value: drivers.length,
+      title: "Active Drivers",
+      value: realTimeStats.drivers,
       icon: Car,
       color: "text-green-600",
       bgColor: "bg-green-50"
     },
     {
-      title: "Accommodations",
-      value: accommodations.length,
-      icon: Building,
+      title: "Today's Attendance",
+      value: realTimeStats.attendance,
+      icon: Calendar,
       color: "text-purple-600",
       bgColor: "bg-purple-50"
     },
     {
-      title: "Active Assignments",
-      value: driverAssignments.length,
+      title: "Active Routes",
+      value: driverAssignments.filter(a => a.status === 'active').length || driverAssignments.length,
       icon: MapPin,
       color: "text-orange-600",
       bgColor: "bg-orange-50"
@@ -396,25 +429,6 @@ export default function AdminPanel() {
       default:
         return (
           <div className="space-y-6">
-            {/* Stats Overview */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {stats.map((stat, index) => (
-                <Card key={index} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                        <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                      </div>
-                      <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                        <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
             {/* Quick Actions */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setActiveTab('users')}>
@@ -543,49 +557,69 @@ export default function AdminPanel() {
   };
 
   return (
-    <DashboardLayout user={user} onLogout={handleLogout}>
-      <div className="space-y-6">
-        {/* Message Display */}
-        {message && (
-          <Card className={message.includes('successfully') ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+    <>
+      <DashboardLayout user={user} onLogout={handleLogout}>
+        {/* Real-Time Stats at the Top (inside DashboardLayout) */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          {stats.map((stat, index) => (
+            <Card key={index} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="space-y-6">
+          {/* Message Display */}
+          {message && (
+            <Card className={message.includes('successfully') ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+              <CardContent className="pt-6">
+                <p className={message.includes('successfully') ? 'text-green-800' : 'text-red-800'}>
+                  {message}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Navigation Tabs */}
+          <Card>
             <CardContent className="pt-6">
-              <p className={message.includes('successfully') ? 'text-green-800' : 'text-red-800'}>
-                {message}
-              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'overview', label: 'Overview', icon: Activity },
+                  { id: 'users', label: `Users (${users.length})`, icon: Users },
+                  { id: 'drivers', label: `Drivers (${drivers.length})`, icon: Car },
+                  { id: 'accommodations', label: `Accommodations (${accommodations.length})`, icon: Building },
+                  { id: 'attendance', label: 'Attendance', icon: Activity },
+                  { id: 'leaves', label: 'Leave Requests', icon: Calendar },
+                  { id: 'assignments', label: `Assignments (${driverAssignments.length})`, icon: MapPin }
+                ].map((tab) => (
+                  <Button
+                    key={tab.id}
+                    variant={activeTab === tab.id ? 'default' : 'outline'}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </Button>
+                ))}
+              </div>
             </CardContent>
           </Card>
-        )}
 
-        {/* Navigation Tabs */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: 'overview', label: 'Overview', icon: Activity },
-                { id: 'users', label: `Users (${users.length})`, icon: Users },
-                { id: 'drivers', label: `Drivers (${drivers.length})`, icon: Car },
-                { id: 'accommodations', label: `Accommodations (${accommodations.length})`, icon: Building },
-                { id: 'attendance', label: 'Attendance', icon: Activity },
-                { id: 'leaves', label: 'Leave Requests', icon: Calendar },
-                { id: 'assignments', label: `Assignments (${driverAssignments.length})`, icon: MapPin }
-              ].map((tab) => (
-                <Button
-                  key={tab.id}
-                  variant={activeTab === tab.id ? 'default' : 'outline'}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <tab.icon className="h-4 w-4" />
-                  {tab.label}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Content Area */}
-        {renderContent()}
-      </div>
-    </DashboardLayout>
+          {/* Content Area */}
+          {renderContent()}
+        </div>
+      </DashboardLayout>
+    </>
   );
 } 

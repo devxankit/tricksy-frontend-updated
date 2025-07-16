@@ -5,6 +5,7 @@ import AdminPanel from './pages/AdminPanel';
 import UserPanel from './pages/UserPanel';
 import DriverPanel from './pages/DriverPanel';
 import ProtectedRoute from './components/ProtectedRoute';
+import { AdminUsers, AdminAddUser, AdminDrivers, AdminAssignRoutes, AdminAttendance, AdminProcessLeave } from './pages/AdminPlaceholders';
 
 export default function App() {
   return (
@@ -36,6 +37,12 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/users/add" element={<AdminAddUser />} />
+          <Route path="/admin/drivers" element={<AdminDrivers />} />
+          <Route path="/admin/drivers/assign" element={<AdminAssignRoutes />} />
+          <Route path="/admin/attendance" element={<AdminAttendance />} />
+          <Route path="/admin/attendance/leave" element={<AdminProcessLeave />} />
           <Route path="/" element={<Login />} />
           <Route path="*" element={<Login />} />
         </Routes>
